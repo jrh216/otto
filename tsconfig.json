@@ -1,15 +1,22 @@
 {
   "compilerOptions": {
     "lib": [
-      "ESNext"
+      "ES2021"
     ],
     "target": "ES2021",
-    "module": "Node16",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
     "strict": true,
     "noImplicitAny": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "rootDir": "./src",
     "outDir": "./build"
   }

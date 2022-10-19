@@ -1,24 +1,20 @@
 import { AudioPlayerStatus, AudioResource, createAudioPlayer, entersState, joinVoiceChannel, VoiceConnectionStatus, type AudioPlayer, type VoiceConnection } from "@discordjs/voice";
-import { Collection, type GuildTextBasedChannel, type Snowflake, type VoiceBasedChannel } from "discord.js";
-import duration from "../utils/duration.js";
-import { trackEmbed } from "../utils/embeds.js";
-import * as logger from "../utils/logger.js";
-import getYouTubeData from "../utils/youtube.js";
-import { getAudio, searchQuery, type Payload, type Playlist, type Track } from "./Track.js";
+import { Collection, type Snowflake, type VoiceBasedChannel } from "discord.js";
+import * as logger from "../utils/logger";
+import searchYouTube from "../utils/youtube";
+import { getAudio, Playlist, type Track } from "./Track";
 
 export const players = new Collection<Snowflake, Player>();
 
 export default class Player {
     private readonly voiceConnection: VoiceConnection;
     private readonly audioPlayer: AudioPlayer;
-    public queue: Payload[];
-    public repeat: boolean;
+    public queue: Track[];
 
     constructor(voiceConnection: VoiceConnection) {
         this.voiceConnection = voiceConnection;
         this.audioPlayer = createAudioPlayer();
         this.queue = [];
-        this.repeat = false;
 
         this.voiceConnection.on("stateChange", async (_, newState) => {
             if (newState.status === VoiceConnectionStatus.Signalling || newState.status === VoiceConnectionStatus.Connecting) {
@@ -40,22 +36,12 @@ export default class Player {
 
         this.audioPlayer.on("stateChange", async (oldState, newState) => {
             if (oldState.status === AudioPlayerStatus.Playing && newState.status === AudioPlayerStatus.Idle) {
-                if (this.repeat) {
-                    const payload = (oldState.resource as AudioResource<Payload>).metadata;
-                    this.queue.push(payload); // Add finished track to end of queue
-                }
-
                 void this.process(); // Play next track in queue (if any)
             } else if (oldState.status !== AudioPlayerStatus.Paused && newState.status === AudioPlayerStatus.Playing) {
-                const [track, textChannel] = (newState.resource as AudioResource<Payload>).metadata;
-                if (!textChannel)
-                    return;
+                const resource = newState.resource as AudioResource<Track>;
+                const track = resource.metadata;
 
-                textChannel.send({
-                    embeds: [
-                        trackEmbed("Now Playing", track, 0, "full")
-                    ]
-                })
+                track.announce && track.announce(resource); // Announce current track (if possible)
             }
         });
 
@@ -75,7 +61,7 @@ export default class Player {
             });
 
             players.set(
-                guildId,
+                voiceChannel.guildId,
                 player = new Player(voiceConnection)
             );
         }
@@ -87,27 +73,13 @@ export default class Player {
         return this.voiceConnection.disconnect();
     }
 
-    public async play(query: string, textChannel: GuildTextBasedChannel | null): Promise<Track | Playlist | null> {
-        const data = await searchQuery(query);
-        if (data) {
-            if (data.type === "playlist") {
-                this.queue.push(
-                    ...data.tracks.map((track) => [
-                        track,
-                        textChannel
-                    ] as const)
-                );
-            } else if (data.type === "track") {
-                this.queue.push([
-                    data,
-                    textChannel
-                ]);
-            }
+    public play(track: Track | Playlist): void {
+        // Add tracks to queue
+        track.type === "track" ?
+            this.queue.push(track) :
+            this.queue.push(...track.tracks);
 
-            void this.process();
-        }
-
-        return data;
+        void this.process();
     }
 
     public pause(): boolean {
@@ -124,7 +96,6 @@ export default class Player {
 
     public stop(): boolean {
         this.queue = []; // Clear queue
-        this.repeat = false; // Turn off repeat
         return this.skip() && this.disconnect(); // Skip current track and disconnect
     }
 
@@ -132,18 +103,9 @@ export default class Player {
         return this.audioPlayer.state.status;
     }
 
-    public getCurrentTrack(): Track | null {
+    public getCurrentResource(): AudioResource<Track> | null {
         if (this.audioPlayer.state.status !== AudioPlayerStatus.Idle)
-            return (this.audioPlayer.state.resource as AudioResource<Payload>).metadata[0];
-        return null;
-    }
-
-    public getDuration(): number | null {
-        if (this.audioPlayer.state.status !== AudioPlayerStatus.Idle) {
-            const resource = this.audioPlayer.state.resource as AudioResource<Payload>;
-            return duration(resource.playbackDuration).asSeconds(); // Convert to seconds
-        }
-
+            return this.audioPlayer.state.resource as AudioResource<Track>;
         return null;
     }
 
@@ -151,25 +113,25 @@ export default class Player {
         if (this.audioPlayer.state.status !== AudioPlayerStatus.Idle || this.queue.length === 0)
             return;
 
-        let [track, textChannel] = this.queue.shift()!;
-
+        let track = this.queue.shift()!;
         if (track.external) {
-            const query = `audio ${track.title} ${track.artist?.name ?? ""}`.trim();
-            const video = await getYouTubeData(query);
+            const video = await searchYouTube(`${track.title} ${track.author?.name ?? ""} audio`) as Track;
             if (!video) {
-                textChannel?.send("Oops! Couldn't find that song.");
-
                 void this.process();
                 return;
             }
 
-            track = video as Track;
+            track = {
+                ...video,
+                announce: track.announce
+            };
         }
 
         try {
-            this.audioPlayer.play(await getAudio([track, textChannel]));
+            this.audioPlayer.play(await getAudio(track));
         } catch (error) {
             logger.error(error);
+            void this.process(); // Attempt to play next track in queue
         }
     }
 }

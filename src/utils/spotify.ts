@@ -1,8 +1,8 @@
 import fetch from "cross-fetch";
 import { formatOpenURL } from "spotify-uri";
 import spotify from "spotify-url-info";
-import { Person, type Playlist, type Track } from "../structures/Track.js";
-import duration from "./duration.js";
+import { type Person, type Playlist, type Track } from "../structs/Track";
+import { formatDuration } from "./duration";
 
 interface Image {
     url: string;
@@ -11,6 +11,21 @@ interface Image {
 interface SpotifyArtist {
     uri: string;
     name: string;
+}
+
+interface SpotifyPlaylist {
+    uri: string;
+    name: string;
+    owner: {
+        uri: string;
+        display_name: string;
+    };
+    images: Image[];
+    tracks: {
+        items: {
+            track: SpotifyTrack;
+        }[];
+    }
 }
 
 interface SpotifyAlbum {
@@ -23,21 +38,6 @@ interface SpotifyAlbum {
     }
 }
 
-interface SpotifyPlaylist {
-    uri: string;
-    name: string;
-    owner: {
-        uri: string;
-        display_name: string;
-    },
-    images: Image[];
-    tracks: {
-        items: {
-            track: SpotifyTrack
-        }[];
-    };
-}
-
 interface SpotifyTrack {
     uri: string;
     name: string;
@@ -46,7 +46,7 @@ interface SpotifyTrack {
     artists: SpotifyArtist[];
     coverArt?: {
         sources: Image[];
-    }
+    };
 }
 
 const toPerson = (artist: SpotifyArtist): Person => ({
@@ -58,46 +58,46 @@ const toTrack = (track: SpotifyTrack): Track => ({
     type: "track",
     url: formatOpenURL(track.uri),
     title: track.name,
-    duration: duration(track.duration_ms ?? track.duration ?? 0).asSeconds(),
-    artist: toPerson(track.artists[0]),
+    duration: formatDuration(track.duration ?? track.duration_ms ?? 0, "milliseconds"),
+    author: toPerson(track.artists[0]),
     image: track.coverArt?.sources[0].url,
     external: true
 });
 
-const getData = async (url: string): Promise<Track | Playlist | null> => {
-    if (!url.match(/https:\/\/open.spotify.com\/(?:album|playlist|track)\/[a-z0-9](?:\?si=[a-z0-9])?/i))
+const parse = async (url: string): Promise<Track | Playlist | null> => {
+    if (!url.match(/^https:\/\/open.spotify.com\/(?:album|playlist|track)\/[a-z0-9](?:\?si=[a-z0-9])?/i))
         return null;
 
     const data = await spotify(fetch).getData(url);
-    if (data.type === "album") {
-        const album = data as SpotifyAlbum;
-        return {
-            type: "playlist",
-            url: formatOpenURL(album.uri),
-            name: album.name,
-            owner: toPerson(album.artists[0]),
-            tracks: album.tracks.items.map((track) => toTrack(track)),
-            image: album.images[0].url
-        } as Playlist;
-    } else if (data.type === "playlist") {
-        const playlist = data as SpotifyPlaylist;
-        console.log(playlist.tracks.items);
-        return {
-            type: "playlist",
-            url: formatOpenURL(playlist.uri),
-            name: playlist.name,
-            owner: {
-                url: formatOpenURL(playlist.owner.uri),
-                name: playlist.owner.display_name
-            },
-            tracks: playlist.tracks.items.map((track) => toTrack(track.track)),
-            image: playlist.images[0].url
-        } as Playlist;
-    } else if (data.type === "track") {
-        return toTrack(data as SpotifyTrack);
+    switch (data.type) {
+        case "playlist":
+            const playlist: SpotifyPlaylist = data;
+            return {
+                type: "playlist",
+                url: formatOpenURL(playlist.uri),
+                title: playlist.name,
+                tracks: playlist.tracks.items.map(item => toTrack(item.track)),
+                author: {
+                    url: formatOpenURL(playlist.owner.uri),
+                    name: playlist.owner.display_name
+                },
+                image: playlist.images[0].url
+            };
+        case "album":
+            const album: SpotifyAlbum = data;
+            return {
+                type: "playlist",
+                url: formatOpenURL(album.uri),
+                title: album.name,
+                tracks: album.tracks.items.map(toTrack),
+                author: toPerson(album.artists[0]),
+                image: album.images[0].url
+            };
+        case "track":
+            return toTrack(data);
     }
 
     return null;
 }
 
-export default getData;
+export default parse;

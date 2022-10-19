@@ -3,7 +3,7 @@ import duration, { type DurationUnitType } from "dayjs/plugin/duration.js";
 
 dayjs.extend(duration);
 
-export const trackDuration = (time: number, unit: DurationUnitType): string =>
+export const formatDuration = (time: number, unit: DurationUnitType = "seconds"): string =>
     dayjs.duration(time, unit)
         .format("D:HH:mm:ss")
         .replace(/^[0:]+(?=\d[\d:]{3})/, "") // Remove leading zeros

@@ -1,17 +1,27 @@
-import { GuildMember, SlashCommandBuilder } from "discord.js";
-import type Command from "../structures/Command.js";
-import Player from "../structures/Player.js";
-import { playlistEmbed, trackEmbed } from "../utils/embeds.js";
+import { type AudioResource } from "@discordjs/voice";
+import { SlashCommandBuilder, type ChatInputCommandInteraction, type GuildMember } from "discord.js";
+import Error from "../embeds/Error";
+import NowPlaying from "../embeds/NowPlaying";
+import Preview from "../embeds/Preview";
+import type Command from "../structs/Command";
+import Player from "../structs/Player";
+import { getTrackOrPlaylist, type Track } from "../structs/Track";
+
+const announce = (interaction: ChatInputCommandInteraction, resource: AudioResource<Track>): void => {
+    interaction.channel?.send({
+        embeds: [NowPlaying(resource.metadata, resource.playbackDuration)]
+    })
+}
 
 const play: Command = {
     data: new SlashCommandBuilder()
         .setName("play")
-        .setDescription("Plays a song.")
+        .setDescription("Plays a song or video.")
         .setDMPermission(false)
         .addStringOption(option =>
             option
                 .setName("query")
-                .setDescription("A url or query.")
+                .setDescription("A title or url.")
                 .setRequired(true)
         ),
     execute: async (interaction) => {
@@ -24,27 +34,31 @@ const play: Command = {
             await interaction.deferReply();
 
             const query = interaction.options.getString("query", true);
-            const track = await player.play(query, interaction.channel);
+            const track = await getTrackOrPlaylist(query);
+
             if (track) {
+                // Add announce function
+                track.type === "track" ?
+                    track.announce = (resource) => announce(interaction, resource) :
+                    track.tracks.forEach(track => track.announce = (resource) => announce(interaction, resource));
+
+                player.play(track); // Add track or playlist to queue
+
                 await interaction.editReply({
-                    embeds: [
-                        track.type === "playlist" ?
-                            playlistEmbed("Queued", track) :
-                            trackEmbed("Queued", track, 0, "thumbnail")
-                    ]
+                    embeds: [Preview(track, "Queued")]
                 });
             } else {
                 await interaction.editReply({
-                    content: "Oops! No results found for that query."
+                    embeds: [Error("Failed to find a result for that query.")]
                 });
             }
         } else {
-            await interaction.reply({
-                content: "You're not in a voice channel, silly.",
-                ephemeral: true
+            interaction.reply({
+                ephemeral: true,
+                embeds: [Error("You're not in a voice channel, silly.")]
             });
         }
     }
-}
+};
 
 export default play;

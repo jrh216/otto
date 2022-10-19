@@ -1,23 +1,19 @@
-import { commands } from "../structures/Command.js";
-import type Event from "../structures/Event.js";
-import * as logger from "../utils/logger.js";
+import { commands } from "../structs/Command";
+import type Event from "../structs/Event";
+import * as logger from "../utils/logger";
 
 const interactionCreate: Event<"interactionCreate"> = {
     name: "interactionCreate",
-    execute: async (interaction) => {
+    listener: async (interaction) => {
         if (!interaction.isChatInputCommand())
             return;
 
         const command = commands.get(interaction.commandName);
 
-        if (command) {
-            try {
-                await command.execute(interaction);
-            } catch (error) {
-                logger.error(error);
-            }
-        } else {
-            logger.error(`Command \`${interaction.commandName}\` doesn't exist.`);
+        try {
+            command?.execute(interaction);
+        } catch (error) {
+            logger.error(`Command \`${interaction.commandName}\` had an error.`);
         }
     }
 };
