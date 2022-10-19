@@ -10,11 +10,13 @@ export default class Player {
     private readonly voiceConnection: VoiceConnection;
     private readonly audioPlayer: AudioPlayer;
     public queue: Track[];
+    public repeat: boolean;
 
     constructor(voiceConnection: VoiceConnection) {
         this.voiceConnection = voiceConnection;
         this.audioPlayer = createAudioPlayer();
         this.queue = [];
+        this.repeat = false;
 
         this.voiceConnection.on("stateChange", async (_, newState) => {
             if (newState.status === VoiceConnectionStatus.Signalling || newState.status === VoiceConnectionStatus.Connecting) {
@@ -36,6 +38,11 @@ export default class Player {
 
         this.audioPlayer.on("stateChange", async (oldState, newState) => {
             if (oldState.status === AudioPlayerStatus.Playing && newState.status === AudioPlayerStatus.Idle) {
+                if (this.repeat) {
+                    const track = (oldState.resource as AudioResource<Track>).metadata;
+                    this.queue.push(track); // Add track to end of queue
+                }
+
                 void this.process(); // Play next track in queue (if any)
             } else if (oldState.status !== AudioPlayerStatus.Paused && newState.status === AudioPlayerStatus.Playing) {
                 const resource = newState.resource as AudioResource<Track>;

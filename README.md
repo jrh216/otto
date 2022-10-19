@@ -1,5 +1,5 @@
 <p align="center">
-    <a href="https://discord.com/api/oauth2/authorize?client_id=943080100671410178&permissions=36716544&scope=bot%20applications.commands">
+    <a href="https://discord.com/api/oauth2/authorize?client_id=911101278388641873&permissions=0&scope=bot%20applications.commands">
         <img width="128" src="./docs/otto.png" />
     </a>
 </p>
