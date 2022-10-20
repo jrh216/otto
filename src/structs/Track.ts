@@ -31,7 +31,7 @@ export interface Playlist {
 }
 
 const find = async (query: string): Promise<Track | Playlist | null> => {
-    const spotify = parseSpotify(query);
+    const spotify = await parseSpotify(query);
     return spotify ?? searchYouTube(query);
 }
 
