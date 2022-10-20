@@ -1,6 +1,10 @@
 <p align="center">
     <a href="https://discord.com/api/oauth2/authorize?client_id=911101278388641873&permissions=0&scope=bot%20applications.commands">
-        <img width="128" src="./docs/otto.png" />
+        <img width="128" src="./docs/otto.png">
+    </a>
+    <br>
+    <a href="https://discord.com/api/oauth2/authorize?client_id=911101278388641873&permissions=0&scope=bot%20applications.commands">
+        <img src="https://img.shields.io/badge/Otto%234411-Invite%20Me-%237289da?style=flat-square&logo=discord&&logoColor=%237289da&labelColor=%23424549">
     </a>
 </p>
 
@@ -9,25 +13,9 @@
 > A friendly, music-playing cephalopod.
 
 - YouTube and Spotify support
-- Beautiful embeds
-- Slash commands
-
-## Getting Started
-**Node.js 16.9.0 or newer is required.**
-
-- Set up required environment variables (See .env.example)
-
-```
-npm install
-npm run build
-npm start
-```
-
-### Docker
-```
-docker build ./ -t otto
-docker run -d otto
-```
+- Beautiful, informative embeds
+- Slash command support
+- And more to come...
 
 ## License
 MIT

@@ -13,7 +13,7 @@ const interactionCreate: Event<"interactionCreate"> = {
         try {
             command?.execute(interaction);
         } catch (error) {
-            logger.error(`Command \`${interaction.commandName}\` had an error.`);
+            logger.error(`Command \`${interaction.commandName}\` encountered an error.`);
         }
     }
 };

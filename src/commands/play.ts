@@ -1,16 +1,21 @@
-import { type AudioResource } from "@discordjs/voice";
-import { SlashCommandBuilder, type ChatInputCommandInteraction, type GuildMember } from "discord.js";
-import Error from "../embeds/Error";
-import NowPlaying from "../embeds/NowPlaying";
-import Preview from "../embeds/Preview";
+import { AudioResource } from "@discordjs/voice";
+import { ChatInputCommandInteraction, SlashCommandBuilder, type GuildMember } from "discord.js";
+import EmbedError from "../embeds/EmbedError";
+import EmbedPlaylist from "../embeds/EmbedPlaylist";
+import EmbedTrack from "../embeds/EmbedTrack";
 import type Command from "../structs/Command";
 import Player from "../structs/Player";
-import { getTrackOrPlaylist, type Track } from "../structs/Track";
+import findTrack, { Track } from "../structs/Track";
 
-const announce = (interaction: ChatInputCommandInteraction, resource: AudioResource<Track>): void => {
-    interaction.channel?.send({
-        embeds: [NowPlaying(resource.metadata, resource.playbackDuration)]
-    })
+const announce = async (resource: AudioResource<Track>, interaction: ChatInputCommandInteraction): Promise<void> => {
+    const track = resource.metadata;
+    await interaction.followUp({
+        embeds: [
+            EmbedTrack(track, "Now Playing", resource.playbackDuration)
+                .setThumbnail(null)
+                .setImage(track.image ?? null)
+        ]
+    });
 }
 
 const play: Command = {
@@ -21,41 +26,61 @@ const play: Command = {
         .addStringOption(option =>
             option
                 .setName("query")
-                .setDescription("A title or url.")
+                .setDescription("a query or url.")
                 .setRequired(true)
         ),
-    execute: async (interaction) => {
+    async execute(interaction) {
         if (!interaction.inGuild())
             return;
 
-        const channel = (interaction.member as GuildMember).voice.channel;
-        const player = Player.connect(interaction.guildId, channel);
+        const player = Player.connect(interaction.member as GuildMember);
         if (player) {
             await interaction.deferReply();
 
             const query = interaction.options.getString("query", true);
-            const track = await getTrackOrPlaylist(query);
-
-            if (track) {
-                // Add announce function
-                track.type === "track" ?
-                    track.announce = (resource) => announce(interaction, resource) :
-                    track.tracks.forEach(track => track.announce = (resource) => announce(interaction, resource));
-
-                player.play(track); // Add track or playlist to queue
-
+            const media = await findTrack(query); // A track or playlist
+            if (!media) {
                 await interaction.editReply({
-                    embeds: [Preview(track, "Queued")]
+                    embeds: [
+                        EmbedError("There are no results for that query.")
+                    ]
                 });
-            } else {
-                await interaction.editReply({
-                    embeds: [Error("Failed to find a result for that query.")]
-                });
+
+                return;
             }
+
+            // Ignore live videos (limitation)
+            if (media && media.type === "track" && media.duration === "live") {
+                await interaction.editReply({
+                    embeds: [
+                        EmbedError("Live videos can't be played.")
+                    ]
+                });
+
+                return;
+            }
+
+            media.type === "track" ?
+                media.announce = (resource) => announce(resource, interaction) :
+                media.tracks.forEach(track =>
+                    track.announce = (resource) => announce(resource, interaction)
+                );
+
+            player.play(media); // Queue the track or playlist
+
+            await interaction.editReply({
+                embeds: [
+                    media.type === "track" ?
+                        EmbedTrack(media, "Queued") :
+                        EmbedPlaylist(media, "Queued")
+                ]
+            });
         } else {
-            interaction.reply({
+            await interaction.reply({
                 ephemeral: true,
-                embeds: [Error("You're not in a voice channel, silly.")]
+                embeds: [
+                    EmbedError("You must be in a voice channel.")
+                ]
             });
         }
     }

@@ -1,6 +1,1 @@
-.elasticbeanstalk/
-build/
 node_modules/
-.dockerignore
-.env
-Dockerfile
