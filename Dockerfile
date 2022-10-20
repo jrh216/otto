@@ -1,5 +1,5 @@
 FROM node:lts-alpine AS builder
-RUN makdir -p /app
+RUN mkdir -p /app
 WORKDIR /app
 COPY ./ ./
 RUN npm ci
