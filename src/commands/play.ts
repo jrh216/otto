@@ -1,11 +1,12 @@
-import { AudioResource } from "@discordjs/voice";
-import { ChatInputCommandInteraction, SlashCommandBuilder, type GuildMember } from "discord.js";
+import { type AudioResource } from "@discordjs/voice";
+import { SlashCommandBuilder, type ChatInputCommandInteraction, type GuildMember } from "discord.js";
 import EmbedError from "../embeds/EmbedError";
 import EmbedPlaylist from "../embeds/EmbedPlaylist";
 import EmbedTrack from "../embeds/EmbedTrack";
 import type Command from "../structs/Command";
 import Player from "../structs/Player";
-import findTrack, { Track } from "../structs/Track";
+import { type Track } from "../structs/Track";
+import search from "../utils/youtube";
 
 const announce = async (resource: AudioResource<Track>, interaction: ChatInputCommandInteraction): Promise<void> => {
     const track = resource.metadata;
@@ -38,22 +39,11 @@ const play: Command = {
             await interaction.deferReply();
 
             const query = interaction.options.getString("query", true);
-            const media = await findTrack(query); // A track or playlist
+            const media = await search(query); // A track or playlist
             if (!media) {
                 await interaction.editReply({
                     embeds: [
                         EmbedError("There are no results for that query.")
-                    ]
-                });
-
-                return;
-            }
-
-            // Ignore live videos (limitation)
-            if (media && media.type === "track" && media.duration === "live") {
-                await interaction.editReply({
-                    embeds: [
-                        EmbedError("Live videos can't be played.")
                     ]
                 });
 

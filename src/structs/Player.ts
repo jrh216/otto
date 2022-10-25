@@ -1,7 +1,7 @@
 import { AudioPlayerStatus, createAudioPlayer, entersState, joinVoiceChannel, VoiceConnectionStatus, type AudioPlayer, type AudioResource, type VoiceConnection } from "@discordjs/voice";
 import { Collection, type GuildMember, type Snowflake } from "discord.js";
 import * as logger from "../utils/logger";
-import { Playlist, type Track } from "./Track";
+import { type Playlist, type Track } from "./Track";
 
 export const players = new Collection<Snowflake, Player>();
 
@@ -115,9 +115,7 @@ export default class Player {
         const track = this.queue.shift()!;
 
         try {
-            const audio = await track.audio();
-            if (audio)
-                this.audioPlayer.play(audio);
+            this.audioPlayer.play(await track.audio());
         } catch (error) {
             logger.error(error);
             void this.process();

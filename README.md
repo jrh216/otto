@@ -12,7 +12,7 @@
 
 > A friendly, music-playing cephalopod.
 
-- YouTube and Spotify support
+- YouTube and ~~Spotify~~ support
 - Beautiful, informative embeds
 - Slash command support
 - And more to come...

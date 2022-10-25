@@ -14,6 +14,5 @@ const client = new Client({
 (async () => {
     await registerEvents(client);
     await registerCommands();
-
     client.login(process.env.TOKEN);
 })();

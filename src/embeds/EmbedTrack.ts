@@ -22,8 +22,8 @@ const EmbedTrack = (track: Track, title: string, duration: number = 0) =>
         .setTitle(title)
         .setDescription(`[${track.title}](${track.url})`)
         .setThumbnail(track.image ?? null)
-        .setFooter(track.duration !== "live" ? {
+        .setFooter({
             text: `${formatDuration(duration, "milliseconds")} / ${formatDuration(track.duration)}`
-        } : null);
+        });
 
 export default EmbedTrack;

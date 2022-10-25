@@ -7,7 +7,7 @@ import * as logger from "../utils/logger";
 const ready: Event<"ready"> = {
     name: "ready",
     listener: async (client) => {
-        console.log(figlet.textSync("Otto", { font: "Slant" })); // ASCII text
+        console.log(figlet.textSync("Otto", { font: "Slant" })); // ASCII logo
 
         if (!process.env.CLIENT_ID)
             throw new Error("The environment variable CLIENT_ID must be provided.");
