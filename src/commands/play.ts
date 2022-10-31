@@ -6,7 +6,8 @@ import EmbedTrack from "../embeds/EmbedTrack";
 import type Command from "../structs/Command";
 import Player from "../structs/Player";
 import { type Track } from "../structs/Track";
-import search from "../utils/youtube";
+import parseSpotify from "../utils/spotify";
+import searchYouTube from "../utils/youtube";
 
 const announce = async (resource: AudioResource<Track>, interaction: ChatInputCommandInteraction): Promise<void> => {
     const track = resource.metadata;
@@ -39,7 +40,7 @@ const play: Command = {
             await interaction.deferReply();
 
             const query = interaction.options.getString("query", true);
-            const media = await search(query); // A track or playlist
+            const media = await parseSpotify(query) ?? await searchYouTube(query); // A track or playlist
             if (!media) {
                 await interaction.editReply({
                     embeds: [
