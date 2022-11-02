@@ -8,7 +8,7 @@ const asTrack = (track: any): Track => ({
     type: "track",
     url: formatOpenURL(track.uri),
     title: track.name,
-    duration: track.duration ?? track.duration_ms,
+    duration: (track.duration ?? track.duration_ms) / 1000,
     author: {
         url: formatOpenURL(track.artists[0].uri),
         name: track.artists[0].name
