@@ -7,10 +7,9 @@
     "module": "CommonJS",
     "moduleResolution": "Node",
     "strict": true,
-    "noImplicitAny": true,
     "esModuleInterop": true,
-    "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
     "rootDir": "./src",
     "outDir": "./build"
   }

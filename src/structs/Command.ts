@@ -1,8 +1,15 @@
-import { Collection, type ChatInputCommandInteraction, type SlashCommandBuilder } from "discord.js";
+import { SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
 
-export const commands = new Collection<String, Command>();
+type CommandData =
+    | SlashCommandBuilder
+    | Omit<SlashCommandBuilder, "addSubcommand" | "addSubcommandGroup">;
 
-export default interface Command {
-    data: SlashCommandBuilder | Omit<SlashCommandBuilder, "addSubcommandGroup" | "addSubcommand">;
-    execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
+export default abstract class Command {
+    public readonly data: CommandData;
+
+    public constructor(data: (builder: SlashCommandBuilder) => CommandData) {
+        this.data = data(new SlashCommandBuilder());
+    }
+
+    public abstract execute(interaction: ChatInputCommandInteraction): Promise<unknown>;
 }

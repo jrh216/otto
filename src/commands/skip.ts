@@ -1,45 +1,38 @@
-import { SlashCommandBuilder, type GuildMember } from "discord.js";
-import EmbedError from "../embeds/EmbedError";
+import { AudioPlayerStatus } from "@discordjs/voice";
+import { type ChatInputCommandInteraction, type GuildMember } from "discord.js";
+import EmbedLogger from "../embeds/EmbedLogger";
 import EmbedTrack from "../embeds/EmbedTrack";
-import type Command from "../structs/Command";
+import Command from "../structs/Command";
 import Player from "../structs/Player";
 
-const skip: Command = {
-    data: new SlashCommandBuilder()
-        .setName("skip")
-        .setDescription("Skips the current track.")
-        .setDMPermission(false),
-    async execute(interaction) {
-        if (!interaction.inGuild())
-            return;
+export default class SkipCommand extends Command {
+    public constructor() {
+        super((builder) =>
+            builder
+                .setName("skip")
+                .setDescription("Skips the current track.")
+                .setDMPermission(false)
+        );
+    }
 
-        const player = Player.connect(interaction.member as GuildMember);
-        if (player) {
-            const resource = player.getCurrentResource();
-            if (resource) {
-                player.skip(); // Skip current track
+    public async execute(interaction: ChatInputCommandInteraction): Promise<unknown> {
+        const player = Player.get(interaction.member as GuildMember, false);
+        if (!player || player.getAudioStatus() === AudioPlayerStatus.Idle)
+            return interaction.reply({
+                embeds: [
+                    EmbedLogger("Nothing is currently playing.", "error")
+                ],
+                ephemeral: true
+            });
 
-                await interaction.reply({
-                    embeds: [
-                        EmbedTrack(
-                            resource.metadata,
-                            "Skipped",
-                            resource.playbackDuration
-                        )
-                    ]
-                });
+        const resource = player.getCurrentResource()!;
 
-                return;
-            }
-        }
+        player.skip();
 
-        await interaction.reply({
-            ephemeral: true,
+        return interaction.reply({
             embeds: [
-                EmbedError("Nothing is currently playing.")
+                EmbedTrack(resource.metadata, "Skipped", resource.playbackDuration)
             ]
         });
     }
-};
-
-export default skip;
+}

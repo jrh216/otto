@@ -1,8 +1,8 @@
-import { Client } from "discord.js";
-import { config } from "dotenv";
-import { registerCommands, registerEvents } from "./utils/registrars";
+import { Client, Collection } from "discord.js";
+import dotenv from "dotenv";
+import { registerCommands, registerListeners } from "./utils/registrars";
 
-config(); // Load environment variables
+dotenv.config(); // Load environment variables
 
 const client = new Client({
     intents: [
@@ -11,8 +11,11 @@ const client = new Client({
     ]
 });
 
+client.commands = new Collection();
+client.players = new Collection();
+
 (async () => {
-    await registerEvents(client);
-    await registerCommands();
-    client.login(process.env.TOKEN);
+    await registerListeners(client);
+    await registerCommands(client);
+    await client.login(process.env.TOKEN);
 })();

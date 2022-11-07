@@ -1,5 +1,5 @@
 import { EmbedBuilder } from "discord.js";
-import { type Playlist } from "../structs/Track";
+import { type Playlist } from "../structs/AudioSource";
 
 const EmbedPlaylist = (playlist: Playlist, title: string) =>
     new EmbedBuilder()
@@ -12,8 +12,6 @@ const EmbedPlaylist = (playlist: Playlist, title: string) =>
         .setTitle(title)
         .setDescription(`[${playlist.title}](${playlist.url})`)
         .setThumbnail(playlist.image ?? null)
-        .setFooter({
-            text: `${playlist.tracks.length} tracks queued.`
-        });
+        .setFooter({ text: `${playlist.tracks.length} tracks queued.` });
 
 export default EmbedPlaylist;

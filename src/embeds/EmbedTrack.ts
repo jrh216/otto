@@ -1,13 +1,16 @@
-import dayjs from "dayjs";
-import duration, { type DurationUnitType } from "dayjs/plugin/duration.js";
 import { EmbedBuilder } from "discord.js";
-import { type Track } from "../structs/Track";
+import { type Track } from "../structs/AudioSource";
 
-export const formatDuration = (time: number, unit: DurationUnitType = "seconds"): string => {
-    dayjs.extend(duration); // Use `duration` plugin
+const formatDuration = (time: number): string => {
+    const pad = (time: number): string =>
+        String(time).padStart(2, "0");
 
-    return dayjs.duration(time, unit)
-        .format("D:HH:mm:ss")
+    const seconds = Math.floor(time / 1000 % 60);
+    const minutes = Math.floor(time / (1000 * 60) % 60);
+    const hours = Math.floor(time / (1000 * 60 * 60) % 24);
+    const days = Math.floor(time / (1000 * 60 * 60 * 24));
+
+    return `${pad(days)}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
         .replace(/^[0:]+(?=\d[\d:]{3})/, "") // Remove leading zeros
 }
 
@@ -22,8 +25,6 @@ const EmbedTrack = (track: Track, title: string, duration: number = 0) =>
         .setTitle(title)
         .setDescription(`[${track.title}](${track.url})`)
         .setThumbnail(track.image ?? null)
-        .setFooter({
-            text: `${formatDuration(duration, "milliseconds")} / ${formatDuration(track.duration)}`
-        });
+        .setFooter({ text: `${formatDuration(duration)} / ${formatDuration(track.duration)}` });
 
 export default EmbedTrack;

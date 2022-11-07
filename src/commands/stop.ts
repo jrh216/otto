@@ -1,30 +1,35 @@
-import { SlashCommandBuilder, type GuildMember } from "discord.js";
-import EmbedError from "../embeds/EmbedError";
-import type Command from "../structs/Command";
+import { AudioPlayerStatus } from "@discordjs/voice";
+import { type ChatInputCommandInteraction, type GuildMember } from "discord.js";
+import EmbedLogger from "../embeds/EmbedLogger";
+import Command from "../structs/Command";
 import Player from "../structs/Player";
 
-const stop: Command = {
-    data: new SlashCommandBuilder()
-        .setName("stop")
-        .setDescription("Stops audio playback.")
-        .setDMPermission(false),
-    async execute(interaction) {
-        if (!interaction.inGuild())
-            return;
-
-        const player = Player.connect(interaction.member as GuildMember);
-        if (player) {
-            player.stop(); // Stop audio playback
-            await interaction.reply("Bye! :)");
-        } else {
-            await interaction.reply({
-                ephemeral: true,
-                embeds: [
-                    EmbedError("Nothing is currently playing.")
-                ]
-            });
-        }
+export default class StopCommand extends Command {
+    public constructor() {
+        super((builder) =>
+            builder
+                .setName("stop")
+                .setDescription("Stops audio playback.")
+                .setDMPermission(false)
+        );
     }
-};
 
-export default stop;
+    public async execute(interaction: ChatInputCommandInteraction): Promise<unknown> {
+        const player = Player.get(interaction.member as GuildMember, false);
+        if (!player || player.getAudioStatus() === AudioPlayerStatus.Idle)
+            return interaction.reply({
+                embeds: [
+                    EmbedLogger("Nothing is currently playing.", "error")
+                ],
+                ephemeral: true
+            });
+
+        player.stop();
+
+        return interaction.reply({
+            embeds: [
+                EmbedLogger("Stopped audio playback and left the voice channel.", "info")
+            ]
+        });
+    }
+}

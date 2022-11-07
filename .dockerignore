@@ -1,1 +1,9 @@
+docs/
 node_modules/
+.dockerignore
+.env.example
+.gitignore
+docker-compose.yml
+Dockerfile
+LICENSE
+README.md

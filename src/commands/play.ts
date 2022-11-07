@@ -1,80 +1,96 @@
 import { type AudioResource } from "@discordjs/voice";
-import { SlashCommandBuilder, type ChatInputCommandInteraction, type GuildMember } from "discord.js";
-import EmbedError from "../embeds/EmbedError";
+import { type ChatInputCommandInteraction, type GuildMember } from "discord.js";
+import EmbedLogger from "../embeds/EmbedLogger";
 import EmbedPlaylist from "../embeds/EmbedPlaylist";
 import EmbedTrack from "../embeds/EmbedTrack";
-import type Command from "../structs/Command";
+import { type Track } from "../structs/AudioSource";
+import Command from "../structs/Command";
 import Player from "../structs/Player";
-import { type Track } from "../structs/Track";
-import parseSpotify from "../utils/spotify";
-import searchYouTube from "../utils/youtube";
 
-const announce = async (resource: AudioResource<Track>, interaction: ChatInputCommandInteraction): Promise<void> => {
-    const track = resource.metadata;
-    await interaction.followUp({
-        embeds: [
-            EmbedTrack(track, "Now Playing", resource.playbackDuration)
-                .setThumbnail(null)
-                .setImage(track.image ?? null)
-        ]
-    });
+const announce = (interaction: ChatInputCommandInteraction): (resource: AudioResource<Track>) => Promise<unknown> => {
+    return (resource: AudioResource<Track>): Promise<unknown> => {
+        const track = resource.metadata;
+        return interaction.followUp({
+            embeds: [
+                EmbedTrack(track, "Now Playing", resource.playbackDuration)
+                    .setThumbnail(null)
+                    .setImage(track.image ?? null)
+            ]
+        });
+    }
 }
 
-const play: Command = {
-    data: new SlashCommandBuilder()
-        .setName("play")
-        .setDescription("Plays a song or video.")
-        .setDMPermission(false)
-        .addStringOption(option =>
-            option
-                .setName("query")
-                .setDescription("a query or url.")
-                .setRequired(true)
-        ),
-    async execute(interaction) {
-        if (!interaction.inGuild())
-            return;
+const error = (interaction: ChatInputCommandInteraction): () => Promise<unknown> => {
+    return (): Promise<unknown> =>
+        interaction.followUp({
+            embeds: [
+                EmbedLogger("Unable to play the track.", "error")
+            ]
+        });
+}
 
-        const player = Player.connect(interaction.member as GuildMember);
-        if (player) {
-            await interaction.deferReply();
+export default class PlayCommand extends Command {
+    public constructor() {
+        super((builder) =>
+            builder
+                .setName("play")
+                .setDescription("Plays a song or video audio.")
+                .setDMPermission(false)
+                .addStringOption(option =>
+                    option
+                        .setName("query")
+                        .setDescription("A query or URL.")
+                        .setRequired(true)
+                )
+        );
+    }
 
-            const query = interaction.options.getString("query", true);
-            const media = await parseSpotify(query) ?? await searchYouTube(query); // A track or playlist
-            if (!media) {
-                await interaction.editReply({
-                    embeds: [
-                        EmbedError("There are no results for that query.")
-                    ]
-                });
+    public async execute(interaction: ChatInputCommandInteraction): Promise<unknown> {
+        const player = Player.get(interaction.member as GuildMember);
+        if (!player)
+            return interaction.reply({
+                embeds: [
+                    EmbedLogger("You need to be in a voice channel.", "error")
+                ],
+                ephemeral: true
+            });
 
-                return;
-            }
+        await interaction.deferReply();
 
-            media.type === "track" ?
-                media.announce = (resource) => announce(resource, interaction) :
-                media.tracks.forEach(track =>
-                    track.announce = (resource) => announce(resource, interaction)
-                );
+        const query = interaction.options.getString("query", true);
+        const result = await player.search(query);
 
-            player.play(media); // Queue the track or playlist
+        if (!result)
+            return interaction.editReply({
+                embeds: [
+                    EmbedLogger("No results were found for that query.", "error")
+                ]
+            });
+
+        if (result.type === "track") {
+            result.announce = announce(interaction);
+            result.error = error(interaction);
 
             await interaction.editReply({
                 embeds: [
-                    media.type === "track" ?
-                        EmbedTrack(media, "Queued") :
-                        EmbedPlaylist(media, "Queued")
+                    EmbedTrack(result, "Queued")
                 ]
             });
-        } else {
-            await interaction.reply({
-                ephemeral: true,
+
+            player.play(result);
+        } else if (result.type === "playlist") {
+            result.tracks.forEach((track) => {
+                track.announce = announce(interaction);
+                track.error = error(interaction);
+            });
+
+            await interaction.editReply({
                 embeds: [
-                    EmbedError("You must be in a voice channel.")
+                    EmbedPlaylist(result, "Queued")
                 ]
             });
+
+            player.play(...result.tracks);
         }
     }
-};
-
-export default play;
+}

@@ -1,19 +1,21 @@
-import { AudioPlayerStatus, createAudioPlayer, entersState, joinVoiceChannel, VoiceConnectionStatus, type AudioPlayer, type AudioResource, type VoiceConnection } from "@discordjs/voice";
-import { Collection, type GuildMember, type Snowflake } from "discord.js";
+import { AudioPlayerStatus, AudioResource, createAudioPlayer, createAudioResource, entersState, joinVoiceChannel, VoiceConnectionStatus, type AudioPlayer, type VoiceConnection } from "@discordjs/voice";
+import { type Client, type GuildMember } from "discord.js";
 import * as logger from "../utils/logger";
-import { type Playlist, type Track } from "./Track";
-
-export const players = new Collection<Snowflake, Player>();
+import { SpotifySource, YouTubeSource, type default as AudioSource, type Playable, type Track } from "./AudioSource";
 
 export default class Player {
     private readonly voiceConnection: VoiceConnection;
     private readonly audioPlayer: AudioPlayer;
-    private queue: Track[];
+    private readonly sources: AudioSource[];
+    public queue: Track[];
+    public repeat: boolean;
 
-    constructor(voiceConnection: VoiceConnection) {
+    private constructor(voiceConnection: VoiceConnection, client: Client<true>) {
         this.voiceConnection = voiceConnection;
         this.audioPlayer = createAudioPlayer();
+        this.sources = [new SpotifySource(), new YouTubeSource()];
         this.queue = [];
+        this.repeat = false;
 
         this.voiceConnection.on("stateChange", async (_, newState) => {
             if (newState.status === VoiceConnectionStatus.Signalling || newState.status === VoiceConnectionStatus.Connecting) {
@@ -29,12 +31,17 @@ export default class Player {
                     this.voiceConnection.destroy();
                 }
             } else if (newState.status === VoiceConnectionStatus.Destroyed) {
-                players.delete(this.voiceConnection.joinConfig.guildId);
+                client.players.delete(this.voiceConnection.joinConfig.guildId);
             }
         });
 
-        this.audioPlayer.on("stateChange", async (oldState, newState) => {
+        this.audioPlayer.on("stateChange", (oldState, newState) => {
             if (oldState.status === AudioPlayerStatus.Playing && newState.status === AudioPlayerStatus.Idle) {
+                if (this.repeat)
+                    this.queue.push(
+                        (oldState.resource as AudioResource<Track>).metadata
+                    );
+
                 void this.process();
             } else if (oldState.status !== AudioPlayerStatus.Paused && newState.status === AudioPlayerStatus.Playing) {
                 const resource = newState.resource as AudioResource<Track>;
@@ -47,46 +54,48 @@ export default class Player {
         this.voiceConnection.subscribe(this.audioPlayer);
     }
 
-    public static connect(member: GuildMember): Player | null {
-        let player = players.get(member.guild.id);
+    public static get(member: GuildMember, join: boolean = true): Player | null {
+        let player = member.client.players.get(member.guild.id);
+        if (!join)
+            return player ?? null;
+
         if (!player) {
-            const voice = member.voice.channel;
-            if (!voice)
+            const channel = member.voice.channel;
+            if (!channel)
                 return null;
 
             const voiceConnection = joinVoiceChannel({
-                channelId: voice.id,
-                guildId: voice.guild.id,
-                adapterCreator: voice.guild.voiceAdapterCreator
+                channelId: channel.id,
+                guildId: channel.guild.id,
+                adapterCreator: channel.guild.voiceAdapterCreator
             });
 
-            players.set(
-                voice.guild.id,
-                player = new Player(voiceConnection)
+            member.client.players.set(
+                member.guild.id,
+                player = new Player(voiceConnection, member.client)
             );
         }
 
         return player;
     }
 
-    public disconnect(): boolean {
-        return this.voiceConnection.disconnect();
+    public async search(query: string, omit: string[] = []): Promise<Playable | null> {
+        let result = null;
+        for (let source of this.sources) {
+            if (source.name in omit)
+                continue;
+
+            result = await source.search(query);
+            if (result)
+                break;
+        }
+
+        return result;
     }
 
-    public play(media: Track | Playlist): void {
-        media.type === "track" ?
-            this.queue.push(media) :
-            this.queue.push(...media.tracks)
-
+    public play(...tracks: Track[]): void {
+        this.queue.push(...tracks);
         void this.process();
-    }
-
-    public pause(): boolean {
-        return this.audioPlayer.pause();
-    }
-
-    public unpause(): boolean {
-        return this.audioPlayer.unpause();
     }
 
     public skip(): boolean {
@@ -95,10 +104,10 @@ export default class Player {
 
     public stop(): boolean {
         this.queue = [];
-        return this.skip() && this.disconnect();
+        return this.audioPlayer.stop(true) && this.voiceConnection.disconnect();
     }
 
-    public getStatus(): AudioPlayerStatus {
+    public getAudioStatus(): AudioPlayerStatus {
         return this.audioPlayer.state.status;
     }
 
@@ -112,13 +121,36 @@ export default class Player {
         if (this.audioPlayer.state.status !== AudioPlayerStatus.Idle || this.queue.length === 0)
             return;
 
-        const track = this.queue.shift()!;
+        let track = this.queue.shift()!;
+        if (!track.audio) {
+            const result = await this.search(
+                `${track.title} ${track.author.name} audio`,
+                [track.source]
+            ) as Track | null;
+
+            if (result)
+                track = {
+                    ...track,
+                    ...result
+                };
+        }
 
         try {
-            this.audioPlayer.play(await track.audio());
+            const stream = await (track.audio && track.audio());
+            if (stream) {
+                this.audioPlayer.play(
+                    createAudioResource(stream, {
+                        metadata: track
+                    })
+                );
+
+                return;
+            }
         } catch (error) {
             logger.error(error);
-            void this.process();
         }
+
+        track.error && track.error();
+        void this.process();
     }
 }
