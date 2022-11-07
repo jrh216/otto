@@ -1,11 +1,11 @@
-FROM node:lts-alpine AS builder
+FROM node:lts AS builder
 RUN mkdir -p /app
 WORKDIR /app
 COPY ./ ./
 RUN npm ci
 RUN npm run build
 
-FROM node:lts-alpine
+FROM node:lts
 RUN mkdir -p /app
 WORKDIR /app
 COPY package*.json ./

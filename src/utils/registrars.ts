@@ -1,13 +1,8 @@
 import { ClientEvents, type Client } from "discord.js";
 import { readdir } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import type Command from "../structs/Command";
 import type Listener from "../structs/Listener";
-
-// @ts-ignore: TypeScript bug
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 const register = async (dir: string, registrar: (file: string) => Promise<unknown>): Promise<unknown> => {
     const path = resolve(__dirname, dir);
