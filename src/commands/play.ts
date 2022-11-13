@@ -3,9 +3,9 @@ import { type ChatInputCommandInteraction, type GuildMember } from "discord.js";
 import EmbedLogger from "../embeds/EmbedLogger";
 import EmbedPlaylist from "../embeds/EmbedPlaylist";
 import EmbedTrack from "../embeds/EmbedTrack";
-import { type Track } from "../structs/AudioSource";
 import Command from "../structs/Command";
 import Player from "../structs/Player";
+import { search, type Track } from "../structs/Track";
 
 const announce = (interaction: ChatInputCommandInteraction): (resource: AudioResource<Track>) => Promise<unknown> => {
     return (resource: AudioResource<Track>): Promise<unknown> => {
@@ -58,7 +58,7 @@ export default class PlayCommand extends Command {
         await interaction.deferReply();
 
         const query = interaction.options.getString("query", true);
-        const result = await player.search(query);
+        const result = await search(query);
 
         if (!result)
             return interaction.editReply({

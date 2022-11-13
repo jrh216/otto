@@ -1,19 +1,17 @@
-import { AudioPlayerStatus, AudioResource, createAudioPlayer, createAudioResource, entersState, joinVoiceChannel, VoiceConnectionStatus, type AudioPlayer, type VoiceConnection } from "@discordjs/voice";
+import { AudioPlayerStatus, AudioResource, createAudioPlayer, entersState, joinVoiceChannel, VoiceConnectionStatus, type AudioPlayer, type VoiceConnection } from "@discordjs/voice";
 import { type Client, type GuildMember } from "discord.js";
 import * as logger from "../utils/logger";
-import { SpotifySource, YouTubeSource, type default as AudioSource, type Playable, type Track } from "./AudioSource";
+import { getAudio, type Track } from "./Track";
 
 export default class Player {
     private readonly voiceConnection: VoiceConnection;
     private readonly audioPlayer: AudioPlayer;
-    private readonly sources: AudioSource[];
     public queue: Track[];
     public repeat: boolean;
 
     private constructor(voiceConnection: VoiceConnection, client: Client<true>) {
         this.voiceConnection = voiceConnection;
         this.audioPlayer = createAudioPlayer();
-        this.sources = [new SpotifySource(), new YouTubeSource()];
         this.queue = [];
         this.repeat = false;
 
@@ -79,20 +77,6 @@ export default class Player {
         return player;
     }
 
-    public async search(query: string, omit: string[] = []): Promise<Playable | null> {
-        let result = null;
-        for (let source of this.sources) {
-            if (source.name in omit)
-                continue;
-
-            result = await source.search(query);
-            if (result)
-                break;
-        }
-
-        return result;
-    }
-
     public play(...tracks: Track[]): void {
         this.queue.push(...tracks);
         void this.process();
@@ -122,28 +106,11 @@ export default class Player {
             return;
 
         let track = this.queue.shift()!;
-        if (!track.audio) {
-            const result = await this.search(
-                `${track.title} ${track.author.name} audio`,
-                [track.source]
-            ) as Track | null;
-
-            if (result)
-                track = {
-                    ...track,
-                    ...result
-                };
-        }
 
         try {
-            const stream = await (track.audio && track.audio());
-            if (stream) {
-                this.audioPlayer.play(
-                    createAudioResource(stream, {
-                        metadata: track
-                    })
-                );
-
+            const audio = await getAudio(track);
+            if (audio) {
+                this.audioPlayer.play(audio);
                 return;
             }
         } catch (error) {

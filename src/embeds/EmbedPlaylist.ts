@@ -1,5 +1,5 @@
 import { EmbedBuilder } from "discord.js";
-import { type Playlist } from "../structs/AudioSource";
+import { type Playlist } from "../structs/Track";
 
 const EmbedPlaylist = (playlist: Playlist, title: string) =>
     new EmbedBuilder()

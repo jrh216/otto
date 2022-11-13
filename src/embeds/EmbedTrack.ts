@@ -1,5 +1,5 @@
 import { EmbedBuilder } from "discord.js";
-import { type Track } from "../structs/AudioSource";
+import { type Track } from "../structs/Track";
 
 const formatDuration = (time: number): string => {
     const pad = (time: number): string =>
