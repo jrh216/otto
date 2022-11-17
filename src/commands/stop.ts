@@ -1,6 +1,4 @@
-import { AudioPlayerStatus } from "@discordjs/voice";
-import { type ChatInputCommandInteraction, type GuildMember } from "discord.js";
-import EmbedLogger from "../embeds/EmbedLogger";
+import { type ChatInputCommandInteraction } from "discord.js";
 import Command from "../structs/Command";
 import Player from "../structs/Player";
 
@@ -10,26 +8,21 @@ export default class StopCommand extends Command {
             builder
                 .setName("stop")
                 .setDescription("Stops audio playback.")
-                .setDMPermission(false)
         );
     }
 
-    public async execute(interaction: ChatInputCommandInteraction): Promise<unknown> {
-        const player = Player.get(interaction.member as GuildMember, false);
-        if (!player || player.getAudioStatus() === AudioPlayerStatus.Idle)
+    public async execute(interaction: ChatInputCommandInteraction<"cached">): Promise<unknown> {
+        const player = await Player.connect(interaction.client, interaction.guildId);
+        if (!player)
             return interaction.reply({
-                embeds: [
-                    EmbedLogger("Nothing is currently playing.", "error")
-                ],
+                content: "Nothing is currently playing.",
                 ephemeral: true
             });
 
         player.stop();
 
         return interaction.reply({
-            embeds: [
-                EmbedLogger("Stopped audio playback and left the voice channel.", "info")
-            ]
+            content: "Stopped audio playback."
         });
     }
 }

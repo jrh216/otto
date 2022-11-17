@@ -1,31 +1,27 @@
 import { type AudioResource } from "@discordjs/voice";
-import { type ChatInputCommandInteraction, type GuildMember } from "discord.js";
-import EmbedLogger from "../embeds/EmbedLogger";
-import EmbedPlaylist from "../embeds/EmbedPlaylist";
-import EmbedTrack from "../embeds/EmbedTrack";
+import { type ChatInputCommandInteraction } from "discord.js";
 import Command from "../structs/Command";
 import Player from "../structs/Player";
-import { search, type Track } from "../structs/Track";
+import { search } from "../structs/Query";
+import { type Track } from "../structs/Track";
+import { PlaylistEmbed, TrackEmbed } from "../utils/embed";
 
-const announce = (interaction: ChatInputCommandInteraction): (resource: AudioResource<Track>) => Promise<unknown> => {
-    return (resource: AudioResource<Track>): Promise<unknown> => {
-        const track = resource.metadata;
-        return interaction.followUp({
-            embeds: [
-                EmbedTrack(track, "Now Playing", resource.playbackDuration)
-                    .setThumbnail(null)
-                    .setImage(track.image ?? null)
-            ]
-        });
-    }
-}
-
-const error = (interaction: ChatInputCommandInteraction): () => Promise<unknown> => {
-    return (): Promise<unknown> =>
+const announce = (interaction: ChatInputCommandInteraction<"cached">): (resource: AudioResource<Track>) => Promise<unknown> => {
+    return (resource: AudioResource<Track>): Promise<unknown> =>
         interaction.followUp({
             embeds: [
-                EmbedLogger("Unable to play the track.", "error")
+                TrackEmbed(resource.metadata, "Now Playing", resource.playbackDuration)
+                    .setThumbnail(null)
+                    .setImage(resource.metadata.image ?? null)
             ]
+        });
+}
+
+const error = (interaction: ChatInputCommandInteraction<"cached">): () => Promise<unknown> => {
+    return (): Promise<unknown> =>
+        interaction.followUp({
+            content: "Oops! Unable to play that track.",
+            ephemeral: true
         });
 }
 
@@ -34,8 +30,7 @@ export default class PlayCommand extends Command {
         super((builder) =>
             builder
                 .setName("play")
-                .setDescription("Plays a song or video audio.")
-                .setDMPermission(false)
+                .setDescription("Plays a song or video.")
                 .addStringOption(option =>
                     option
                         .setName("query")
@@ -45,13 +40,11 @@ export default class PlayCommand extends Command {
         );
     }
 
-    public async execute(interaction: ChatInputCommandInteraction): Promise<unknown> {
-        const player = Player.get(interaction.member as GuildMember);
+    public async execute(interaction: ChatInputCommandInteraction<"cached">): Promise<unknown> {
+        const player = await Player.connect(interaction.client, interaction.guildId, interaction.member.voice.channel);
         if (!player)
             return interaction.reply({
-                embeds: [
-                    EmbedLogger("You need to be in a voice channel.", "error")
-                ],
+                content: "You must be in a voice channel.",
                 ephemeral: true
             });
 
@@ -59,38 +52,39 @@ export default class PlayCommand extends Command {
 
         const query = interaction.options.getString("query", true);
         const result = await search(query);
-
         if (!result)
             return interaction.editReply({
-                embeds: [
-                    EmbedLogger("No results were found for that query.", "error")
-                ]
+                content: "Oops! Unable to find a result for that query."
             });
 
         if (result.type === "track") {
             result.announce = announce(interaction);
             result.error = error(interaction);
 
-            await interaction.editReply({
+            player.play(result);
+
+            return interaction.editReply({
                 embeds: [
-                    EmbedTrack(result, "Queued")
+                    TrackEmbed(result, "Queued")
                 ]
             });
-
-            player.play(result);
         } else if (result.type === "playlist") {
             result.tracks.forEach((track) => {
                 track.announce = announce(interaction);
                 track.error = error(interaction);
             });
 
-            await interaction.editReply({
+            player.play(...result.tracks);
+
+            return interaction.editReply({
                 embeds: [
-                    EmbedPlaylist(result, "Queued")
+                    PlaylistEmbed(result, "Queued")
                 ]
             });
-
-            player.play(...result.tracks);
         }
+
+        return interaction.editReply({
+            content: "Oops! Something really bad has happened..."
+        });
     }
 }

@@ -17,5 +17,5 @@ client.players = new Collection();
 (async () => {
     await registerListeners(client);
     await registerCommands(client);
-    await client.login(process.env.TOKEN);
+    await client.login(process.env["TOKEN"]);
 })();

@@ -1,4 +1,4 @@
-import { ClientEvents, type Client } from "discord.js";
+import { type Client, type ClientEvents } from "discord.js";
 import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import type Command from "../structs/Command";

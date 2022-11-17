@@ -1,4 +1,4 @@
-import { Awaitable, type ClientEvents } from "discord.js";
+import { type Awaitable, type ClientEvents } from "discord.js";
 
 export default abstract class Listener<K extends keyof ClientEvents> {
     public readonly event: K;

@@ -1,5 +1,4 @@
-import { bold, type ChatInputCommandInteraction, type GuildMember } from "discord.js";
-import EmbedLogger from "../embeds/EmbedLogger";
+import { bold, type ChatInputCommandInteraction } from "discord.js";
 import Command from "../structs/Command";
 import Player from "../structs/Player";
 
@@ -8,29 +7,21 @@ export default class RepeatCommand extends Command {
         super((builder) =>
             builder
                 .setName("repeat")
-                .setDescription("Repeats all tracks in the queue.")
-                .setDMPermission(false)
+                .setDescription("Repeats the tracks in the queue.")
         );
     }
 
-    public async execute(interaction: ChatInputCommandInteraction): Promise<unknown> {
-        const player = Player.get(interaction.member as GuildMember);
+    public async execute(interaction: ChatInputCommandInteraction<"cached">): Promise<unknown> {
+        const player = await Player.connect(interaction.client, interaction.guildId, interaction.member.voice.channel);
         if (!player)
             return interaction.reply({
-                embeds: [
-                    EmbedLogger("You need to be in a voice channel.", "error")
-                ],
+                content: "You must be in a voice channel.",
                 ephemeral: true
             });
 
         const repeat = player.repeat = !player.repeat;
         return interaction.reply({
-            embeds: [
-                EmbedLogger(
-                    `Repeat is now ${bold(repeat ? "on" : "off")}.`,
-                    "info"
-                )
-            ]
+            content: `Repeat is now ${bold(repeat ? "on" : "off")}.`
         });
     }
 }

@@ -1,15 +1,14 @@
-import { SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
-
-type CommandData =
-    | SlashCommandBuilder
-    | Omit<SlashCommandBuilder, "addSubcommand" | "addSubcommandGroup">;
+import { SlashCommandBuilder, type ChatInputCommandInteraction, type RESTPostAPIChatInputApplicationCommandsJSONBody } from "discord.js";
 
 export default abstract class Command {
-    public readonly data: CommandData;
+    public readonly data: RESTPostAPIChatInputApplicationCommandsJSONBody;
 
-    public constructor(data: (builder: SlashCommandBuilder) => CommandData) {
-        this.data = data(new SlashCommandBuilder());
+    public constructor(data: (builder: SlashCommandBuilder) => SlashCommandBuilder | Omit<SlashCommandBuilder, "addSubcommand" | "addSubcommandGroup">) {
+        this.data = data(
+            new SlashCommandBuilder()
+                .setDMPermission(false)
+        ).toJSON();
     }
 
-    public abstract execute(interaction: ChatInputCommandInteraction): Promise<unknown>;
+    public abstract execute(interaction: ChatInputCommandInteraction<"cached">): Promise<unknown>;
 }

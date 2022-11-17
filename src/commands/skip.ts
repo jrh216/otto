@@ -1,9 +1,8 @@
 import { AudioPlayerStatus } from "@discordjs/voice";
-import { type ChatInputCommandInteraction, type GuildMember } from "discord.js";
-import EmbedLogger from "../embeds/EmbedLogger";
-import EmbedTrack from "../embeds/EmbedTrack";
+import { type ChatInputCommandInteraction } from "discord.js";
 import Command from "../structs/Command";
 import Player from "../structs/Player";
+import { TrackEmbed } from "../utils/embed";
 
 export default class SkipCommand extends Command {
     public constructor() {
@@ -11,17 +10,14 @@ export default class SkipCommand extends Command {
             builder
                 .setName("skip")
                 .setDescription("Skips the current track.")
-                .setDMPermission(false)
         );
     }
 
-    public async execute(interaction: ChatInputCommandInteraction): Promise<unknown> {
-        const player = Player.get(interaction.member as GuildMember, false);
+    public async execute(interaction: ChatInputCommandInteraction<"cached">): Promise<unknown> {
+        const player = await Player.connect(interaction.client, interaction.guildId);
         if (!player || player.getAudioStatus() === AudioPlayerStatus.Idle)
             return interaction.reply({
-                embeds: [
-                    EmbedLogger("Nothing is currently playing.", "error")
-                ],
+                content: "Nothing is currently playing.",
                 ephemeral: true
             });
 
@@ -31,7 +27,7 @@ export default class SkipCommand extends Command {
 
         return interaction.reply({
             embeds: [
-                EmbedTrack(resource.metadata, "Skipped", resource.playbackDuration)
+                TrackEmbed(resource.metadata, "Skipped", resource.playbackDuration)
             ]
         });
     }
