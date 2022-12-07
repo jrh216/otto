@@ -1,21 +1,19 @@
-import { Client, Collection } from "discord.js";
-import dotenv from "dotenv";
-import { registerCommands, registerListeners } from "./utils/registrars";
-
-dotenv.config(); // Load environment variables
+import { Client, Collection, GatewayIntentBits } from "discord.js";
+import { registerCommands } from "./structs/Command";
+import { registerListeners } from "./structs/Listener";
 
 const client = new Client({
     intents: [
-        "Guilds",
-        "GuildVoiceStates"
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildVoiceStates
     ]
 });
 
 client.commands = new Collection();
-client.players = new Collection();
+client.queues = new Collection();
 
 (async () => {
     await registerListeners(client);
     await registerCommands(client);
-    await client.login(process.env["TOKEN"]);
+    await client.login(process.env.TOKEN);
 })();

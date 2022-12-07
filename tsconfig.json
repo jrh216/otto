@@ -12,13 +12,11 @@
     "skipLibCheck": true,
     "allowUnusedLabels": false,
     "allowUnreachableCode": false,
-    "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
     "noImplicitReturns": true,
-    "noPropertyAccessFromIndexSignature": true,
-    "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
+    "jsx": "react-jsx",
     "rootDir": "./src",
     "outDir": "./build"
   }

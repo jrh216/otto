@@ -8,15 +8,17 @@ export default class InteractionCreateListener extends Listener<"interactionCrea
     }
 
     public async run(interaction: Interaction): Promise<void> {
-        if (!interaction.isChatInputCommand() || !interaction.inCachedGuild())
+        if (!interaction.inGuild())
             return;
 
-        const command = interaction.client.commands.get(interaction.commandName);
+        if (interaction.isChatInputCommand()) {
+            const command = interaction.client.commands.get(interaction.commandName);
 
-        try {
-            await command?.execute(interaction);
-        } catch (error) {
-            logger.error(error);
+            try {
+                await command?.execute(interaction);
+            } catch (error) {
+                logger.error(error);
+            }
         }
     }
 }

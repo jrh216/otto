@@ -1,90 +1,67 @@
 import { type AudioResource } from "@discordjs/voice";
-import { type ChatInputCommandInteraction } from "discord.js";
+import { GuildMember, SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
 import Command from "../structs/Command";
-import Player from "../structs/Player";
-import { search } from "../structs/Query";
-import { type Track } from "../structs/Track";
-import { PlaylistEmbed, TrackEmbed } from "../utils/embed";
-
-const announce = (interaction: ChatInputCommandInteraction<"cached">): (resource: AudioResource<Track>) => Promise<unknown> => {
-    return (resource: AudioResource<Track>): Promise<unknown> =>
-        interaction.followUp({
-            embeds: [
-                TrackEmbed(resource.metadata, "Now Playing", resource.playbackDuration)
-                    .setThumbnail(null)
-                    .setImage(resource.metadata.image ?? null)
-            ]
-        });
-}
-
-const error = (interaction: ChatInputCommandInteraction<"cached">): () => Promise<unknown> => {
-    return (): Promise<unknown> =>
-        interaction.followUp({
-            content: "Oops! Unable to play that track.",
-            ephemeral: true
-        });
-}
+import { resolveQuery } from "../structs/Query";
+import Queue, { type Track } from "../structs/Queue";
+import { NowPlayingEmbed, QueuedEmbed } from "../utils/embeds";
 
 export default class PlayCommand extends Command {
-    public constructor() {
-        super((builder) =>
-            builder
+    constructor() {
+        super(
+            new SlashCommandBuilder()
                 .setName("play")
                 .setDescription("Plays a song or video.")
+                .setDMPermission(false)
                 .addStringOption(option =>
                     option
                         .setName("query")
-                        .setDescription("A query or URL.")
+                        .setDescription("A query or link.")
                         .setRequired(true)
                 )
-        );
+        )
     }
 
-    public async execute(interaction: ChatInputCommandInteraction<"cached">): Promise<unknown> {
-        const player = await Player.connect(interaction.client, interaction.guildId, interaction.member.voice.channel);
-        if (!player)
+    public async execute(interaction: ChatInputCommandInteraction<"cached" | "raw">): Promise<unknown> {
+        const queue = Queue.create(interaction.client, interaction.guildId, (queue) => {
+            queue.on("trackStart", (resource: AudioResource<Track>) => {
+                interaction.channel?.send({
+                    embeds: [
+                        NowPlayingEmbed(resource.metadata, resource.playbackDuration)
+                    ]
+                });
+            });
+
+            queue.on("error", () => {
+                interaction.channel?.send("Oops! Failed to play the next track. Skipping.")
+            });
+        });
+
+        if (!queue.connect((interaction.member as GuildMember).voice.channel))
             return interaction.reply({
-                content: "You must be in a voice channel.",
+                content: "Oops! You're not in a voice channel.",
                 ephemeral: true
             });
 
         await interaction.deferReply();
 
         const query = interaction.options.getString("query", true);
-        const result = await search(query);
+        const result = await resolveQuery(query);
         if (!result)
-            return interaction.editReply({
-                content: "Oops! Unable to find a result for that query."
+            return interaction.followUp({
+                content: "Oops! Didn't find any results for that query.",
+                ephemeral: true
             });
 
-        if (result.type === "track") {
-            result.announce = announce(interaction);
-            result.error = error(interaction);
-
-            player.play(result);
-
-            return interaction.editReply({
-                embeds: [
-                    TrackEmbed(result, "Queued")
-                ]
-            });
-        } else if (result.type === "playlist") {
-            result.tracks.forEach((track) => {
-                track.announce = announce(interaction);
-                track.error = error(interaction);
-            });
-
-            player.play(...result.tracks);
-
-            return interaction.editReply({
-                embeds: [
-                    PlaylistEmbed(result, "Queued")
-                ]
-            });
-        }
+        queue.enqueue(...(
+            result.type === "track" ?
+                [result] :
+                result.tracks
+        ));
 
         return interaction.editReply({
-            content: "Oops! Something really bad has happened..."
+            embeds: [
+                QueuedEmbed(result)
+            ]
         });
     }
 }

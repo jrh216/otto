@@ -8,20 +8,20 @@ export default class ReadyListener extends Listener<"ready"> {
     }
 
     public async run(client: Client<true>): Promise<void> {
-        if (!process.env["CLIENT_ID"])
-            throw new Error("Please provide the CLIENT_ID environment variable.");
+        logger.info("Ready!");
+
+        if (!process.env.CLIENT_ID)
+            throw "The environment variable CLIENT_ID is not set.";
 
         const rest = new REST({ version: "10" }).setToken(client.token);
 
         const response = await rest.put(
-            process.env["GUILD_ID"] ?
-                Routes.applicationGuildCommands(process.env["CLIENT_ID"], process.env["GUILD_ID"]) :
-                Routes.applicationCommands(process.env["CLIENT_ID"]),
+            process.env.GUILD_ID ?
+                Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID) :
+                Routes.applicationCommands(process.env.CLIENT_ID),
             { body: client.commands.map((command) => command.data) }
         ) as RESTPutAPIApplicationCommandsResult | RESTPutAPIApplicationGuildCommandsResult;
 
-        response.forEach((command) =>
-            logger.info(`Successfully registered command \`${command.name}\`.`)
-        );
+        response.forEach((command) => logger.info(`Successfully registered command \`${command.name}\`.`));
     }
 }

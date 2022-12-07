@@ -1,27 +1,26 @@
-import { bold, type ChatInputCommandInteraction } from "discord.js";
+import { bold, SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
 import Command from "../structs/Command";
-import Player from "../structs/Player";
+import Queue from "../structs/Queue";
 
 export default class RepeatCommand extends Command {
     public constructor() {
-        super((builder) =>
-            builder
+        super(
+            new SlashCommandBuilder()
                 .setName("repeat")
-                .setDescription("Repeats the tracks in the queue.")
+                .setDescription("Toggles repeating the current queue.")
+                .setDMPermission(false)
         );
     }
 
     public async execute(interaction: ChatInputCommandInteraction<"cached">): Promise<unknown> {
-        const player = await Player.connect(interaction.client, interaction.guildId, interaction.member.voice.channel);
-        if (!player)
+        const queue = Queue.get(interaction.client, interaction.guildId);
+        if (!queue)
             return interaction.reply({
-                content: "You must be in a voice channel.",
+                content: "Oops! Nothing's currently playing.",
                 ephemeral: true
             });
 
-        const repeat = player.repeat = !player.repeat;
-        return interaction.reply({
-            content: `Repeat is now ${bold(repeat ? "on" : "off")}.`
-        });
+        const repeat = queue.repeat = !queue.repeat;
+        return interaction.reply(`Repeat is now ${bold(repeat ? "on" : "off")}.`);
     }
 }

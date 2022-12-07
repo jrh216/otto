@@ -1,34 +1,39 @@
 import { AudioPlayerStatus } from "@discordjs/voice";
-import { type ChatInputCommandInteraction } from "discord.js";
+import { SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
 import Command from "../structs/Command";
-import Player from "../structs/Player";
-import { TrackEmbed } from "../utils/embed";
+import Queue from "../structs/Queue";
+import { SkippedEmbed } from "../utils/embeds";
 
 export default class SkipCommand extends Command {
-    public constructor() {
-        super((builder) =>
-            builder
+    constructor() {
+        super(
+            new SlashCommandBuilder()
                 .setName("skip")
                 .setDescription("Skips the current track.")
-        );
+                .setDMPermission(false)
+        )
     }
 
-    public async execute(interaction: ChatInputCommandInteraction<"cached">): Promise<unknown> {
-        const player = await Player.connect(interaction.client, interaction.guildId);
-        if (!player || player.getAudioStatus() === AudioPlayerStatus.Idle)
+    public async execute(interaction: ChatInputCommandInteraction<"cached" | "raw">): Promise<unknown> {
+        const queue = Queue.get(interaction.client, interaction.guildId);
+        if (!queue || queue.getStatus() === AudioPlayerStatus.Idle)
             return interaction.reply({
-                content: "Nothing is currently playing.",
+                content: "Oops! Nothing's currently playing.",
                 ephemeral: true
             });
 
-        const resource = player.getCurrentResource()!;
+        const track = queue.getCurrentTrack()!;
 
-        player.skip();
+        if (queue.stop())
+            return interaction.reply({
+                embeds: [
+                    SkippedEmbed(track.metadata, track.playbackDuration)
+                ]
+            });
 
         return interaction.reply({
-            embeds: [
-                TrackEmbed(resource.metadata, "Skipped", resource.playbackDuration)
-            ]
+            content: "Oops! Something really bad happened...",
+            ephemeral: true
         });
     }
 }
