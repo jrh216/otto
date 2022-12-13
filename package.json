@@ -18,17 +18,17 @@
     "ffmpeg-static": "^5.1.0",
     "libsodium-wrappers": "^0.7.10",
     "spotify-uri": "^3.0.3",
-    "spotify-url-info": "^3.1.9",
-    "undici": "^5.13.0",
+    "spotify-url-info": "^3.1.10",
+    "undici": "^5.14.0",
     "utf-8-validate": "^5.0.10",
     "youtube-dlsr": "^2.7.4",
     "zlib-sync": "^0.1.7"
   },
   "devDependencies": {
-    "@types/node": "^18.11.11",
+    "@types/node": "^18.11.14",
     "dotenv": "^16.0.3",
     "tsx": "^3.12.1",
-    "typescript": "^4.9.3"
+    "typescript": "^4.9.4"
   },
   "engines": {
     "node": ">=16.9.0"
